@@ -377,7 +377,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "All testing complete"
+    - "Backend integration testing complete"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
@@ -385,3 +385,5 @@ test_plan:
 agent_communication:
     - agent: "testing"
       message: "Comprehensive testing completed for VIK AI Assistant Dashboard. All 7 pages tested successfully. All interactive elements (navigation, buttons, forms, tabs, dialogs, search, filters) are working correctly. Toast notifications appear as expected. No console errors detected. Only minor CDN analytics requests failed (cdn-cgi/rum) which don't affect functionality. Application is fully functional and ready for use."
+    - agent: "testing"
+      message: "Backend integration testing completed successfully. Verified real backend connection at port 8001 with Ollama offline state. Dashboard shows real system metrics (CPU ~15%, RAM 13/31 GB, GPU 'Brak GPU'). TopBar displays 'Ollama Offline' badge. Chat page shows offline warning, disabled input with placeholder 'Ollama offline — uruchom serwer...', and empty model selector. Settings shows '0 modeli w Ollama'. System Monitor tabs all functional with real CPU data. MCP Servers displays 8 cards without hardcoded model names. Tools Sandbox uses 'wybrany model reasoning' text, no DeepSeek hardcoded. Logs page loads with 5 filter buttons. All navigation links functional. No critical errors detected."

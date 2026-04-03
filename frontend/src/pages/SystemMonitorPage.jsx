@@ -5,11 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MiniChart } from "@/components/shared/MiniChart";
+import { useVik } from "@/lib/vikContext";
 import {
-  systemMetrics,
-  gpuHistory,
-  cpuHistory,
-  ollamaModels,
+  systemMetricsFallback,
   dockerContainers,
 } from "@/lib/mockData";
 import { StatusDot } from "@/components/shared/StatusDot";
@@ -60,8 +58,13 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function SystemMonitorPage() {
-  const vramPercent = Math.round((systemMetrics.gpu.vramUsed / systemMetrics.gpu.vramTotal) * 100);
-  const ramPercent = Math.round((systemMetrics.ram.used / systemMetrics.ram.total) * 100);
+  const { systemMetrics: liveMetrics, models } = useVik();
+  const systemMetrics = liveMetrics || systemMetricsFallback;
+  const gpuHistory = [];
+  const cpuHistory = [];
+
+  const vramPercent = systemMetrics.gpu.vramTotal > 0 ? Math.round((systemMetrics.gpu.vramUsed / systemMetrics.gpu.vramTotal) * 100) : 0;
+  const ramPercent = systemMetrics.ram.total > 0 ? Math.round((systemMetrics.ram.used / systemMetrics.ram.total) * 100) : 0;
 
   return (
     <motion.div
@@ -150,29 +153,25 @@ export default function SystemMonitorPage() {
           <motion.div variants={itemVariants}>
             <Card className="glass-card">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-heading">Modele Ollama — Alokacja VRAM</CardTitle>
+                <CardTitle className="text-base font-heading">Modele Ollama — Dostępne</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {ollamaModels.map((model) => (
+                  {models.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Brak modeli. Uruchom Ollama i pobierz model komendą: ollama pull &lt;nazwa&gt;</p>
+                  ) : models.map((model) => (
                     <div key={model.name} className="rounded-lg bg-muted/20 p-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <StatusDot status={model.loaded ? 'running' : 'stopped'} size="sm" />
+                          <StatusDot status="running" size="sm" />
                           <span className="text-sm font-medium text-foreground">{model.name}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] font-mono">{model.quantization}</Badge>
+                          <Badge variant="outline" className="text-[10px] font-mono">{model.quantization || 'N/A'}</Badge>
                           <span className="text-xs font-mono text-muted-foreground">{model.size}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Progress value={(model.vramUsage / systemMetrics.gpu.vramTotal) * 100} className="h-1.5 flex-1" />
-                        <span className="text-[11px] font-mono text-muted-foreground w-16 text-right">
-                          {(model.vramUsage / 1024).toFixed(1)} GB
-                        </span>
-                      </div>
-                      <p className="mt-1 text-[11px] text-muted-foreground">{model.role}</p>
+                      <p className="text-[11px] text-muted-foreground">{model.family} · {model.params}</p>
                     </div>
                   ))}
                 </div>

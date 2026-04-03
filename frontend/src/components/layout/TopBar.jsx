@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useVik } from "@/lib/vikContext";
 import {
   Bell,
   Search,
   Mic,
   MicOff,
   Wifi,
+  WifiOff,
   Menu,
   CircleDot,
 } from "lucide-react";
@@ -21,6 +23,10 @@ import {
 export const TopBar = ({ sidebarCollapsed, onToggleSidebar }) => {
   const [micActive, setMicActive] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const { health, selectedModel } = useVik();
+
+  const ollamaConnected = health.ollama === 'connected';
+  const modelDisplay = selectedModel ? selectedModel.split(':')[0] : 'Brak modelu';
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -52,20 +58,26 @@ export const TopBar = ({ sidebarCollapsed, onToggleSidebar }) => {
           {/* Connection status */}
           <Badge
             variant="outline"
-            className="hidden md:flex gap-1.5 border-success/30 text-success bg-success/5 font-mono text-[11px]"
+            className={`hidden md:flex gap-1.5 font-mono text-[11px] ${
+              ollamaConnected
+                ? 'border-success/30 text-success bg-success/5'
+                : 'border-destructive/30 text-destructive bg-destructive/5'
+            }`}
           >
-            <Wifi className="h-3 w-3" />
-            Ollama Connected
+            {ollamaConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {ollamaConnected ? 'Ollama Online' : 'Ollama Offline'}
           </Badge>
 
           {/* Active model indicator */}
-          <Badge
-            variant="outline"
-            className="hidden lg:flex gap-1.5 border-primary/30 text-primary bg-primary/5 font-mono text-[11px]"
-          >
-            <CircleDot className="h-3 w-3 animate-vik-pulse" />
-            Bielik-11B
-          </Badge>
+          {selectedModel && (
+            <Badge
+              variant="outline"
+              className="hidden lg:flex gap-1.5 border-primary/30 text-primary bg-primary/5 font-mono text-[11px]"
+            >
+              <CircleDot className="h-3 w-3 animate-vik-pulse" />
+              {modelDisplay}
+            </Badge>
+          )}
 
           {/* Voice toggle */}
           <Tooltip>

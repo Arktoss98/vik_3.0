@@ -105,11 +105,6 @@ export default function McpServersPage() {
               </CardHeader>
               <CardContent className="flex-1 space-y-3">
                 <p className="text-xs text-muted-foreground leading-relaxed">{server.description}</p>
-                {server.model && (
-                  <Badge variant="outline" className="text-[10px] font-mono border-primary/20 text-primary/80">
-                    {server.model}
-                  </Badge>
-                )}
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded bg-muted/30 p-2 text-center">
                     <p className="text-sm font-heading font-bold text-foreground">{server.requests.toLocaleString()}</p>

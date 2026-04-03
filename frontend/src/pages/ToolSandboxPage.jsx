@@ -63,7 +63,7 @@ export default function ToolSandboxPage() {
       setGenerating(false);
       setDialogOpen(false);
       setNewToolDesc("");
-      toast.success('Narzędzie generowane przez DeepSeek-R1-14B');
+      toast.success('Narzędzie generowane przez model AI');
 
       // Simulate testing completion
       setTimeout(() => {
@@ -95,7 +95,7 @@ export default function ToolSandboxPage() {
           <div>
             <h1 className="font-heading text-2xl font-bold text-foreground">Piaskownica Narzędzi</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Dynamiczne generowanie narzędzi FastMCP przez DeepSeek-R1-14B
+              Dynamiczne generowanie narzędzi FastMCP przez wybrany model reasoning
             </p>
           </div>
           <Button
@@ -180,7 +180,7 @@ export default function ToolSandboxPage() {
               Wygeneruj Nowe Narzędzie
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Opisz pożądaną funkcjonalność. DeepSeek-R1-14B wygeneruje skrypt FastMCP w izolowanym kontenerze Docker.
+              Opisz pożądaną funkcjonalność. Wybrany model wygeneruje skrypt FastMCP w izolowanym kontenerze Docker.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">

@@ -1,12 +1,20 @@
 import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceWaveform } from "@/components/shared/VoiceWaveform";
-import { chatMessages as initialMessages } from "@/lib/mockData";
+import { useVik } from "@/lib/vikContext";
+import { sendChatMessage } from "@/lib/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Send,
   Mic,
@@ -18,18 +26,29 @@ import {
   Check,
   Loader2,
   Zap,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState(initialMessages);
+  const { models, selectedModel, setSelectedModel, health } = useVik();
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      role: 'system',
+      content: 'VIK zainicjalizowany. Wybierz model z listy i rozpocznij rozmowę.',
+      timestamp: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    },
+  ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [micActive, setMicActive] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
+
+  const ollamaOnline = health.ollama === 'connected';
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -38,11 +57,15 @@ export default function ChatPage() {
     }
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
+    if (!selectedModel) {
+      toast.error("Wybierz model z listy przed wysłaniem wiadomości.");
+      return;
+    }
 
     const userMsg = {
-      id: messages.length + 1,
+      id: Date.now(),
       role: "user",
       content: inputValue.trim(),
       timestamp: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -51,24 +74,40 @@ export default function ChatPage() {
     setInputValue("");
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        'Analizuję Twoje zapytanie... Przetwarzam dane przez silnik Bielik-11B z kwantyzacją Q6_K.\n\nNa podstawie analizy mogę potwierdzić, że wszystkie systemy funkcjonują poprawnie. Czy chcesz, abym wykonał dodatkową diagnostykę?',
-        'Rozumiem. Uruchamiam odpowiednie narzędzie MCP...\n\nProces zakończony pomyślnie. Wyniki zostały zapisane w bazie wektorowej Qdrant do późniejszego wykorzystania w kontekście RAG.',
-        'Przetwarzam zapytanie w trybie reasoning z użyciem DeepSeek-R1-14B...\n\n**Analiza ukończona.**\nModel wygenerował rozwiązanie w 3.2 sekundy z num_ctx ograniczonym do 8192 tokenów.',
-      ];
+    try {
+      // Buduj historię konwersacji dla API
+      const apiMessages = messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({ role: m.role, content: m.content }));
+      apiMessages.push({ role: 'user', content: userMsg.content });
+
+      const response = await sendChatMessage({
+        model: selectedModel,
+        messages: apiMessages,
+        numCtx: 8192,
+      });
+
       const assistantMsg = {
-        id: messages.length + 2,
+        id: Date.now() + 1,
         role: "assistant",
-        content: responses[Math.floor(Math.random() * responses.length)],
+        content: response.content,
         timestamp: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        model: 'bielik-11b-v3.0-instruct:Q6_K',
-        tools_used: ['system-manager'],
+        model: response.model,
       };
       setMessages((prev) => [...prev, assistantMsg]);
+    } catch (err) {
+      const errorMsg = err.response?.data?.detail || err.message || 'Nieznany błąd';
+      toast.error(`Błąd: ${errorMsg}`);
+      const errMsg = {
+        id: Date.now() + 1,
+        role: "system",
+        content: `Błąd komunikacji z modelem: ${errorMsg}`,
+        timestamp: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, errMsg]);
+    } finally {
       setIsLoading(false);
-    }, 1500 + Math.random() * 1500);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -99,14 +138,33 @@ export default function ChatPage() {
                 <div>
                   <CardTitle className="text-base font-heading">Chat z VIK</CardTitle>
                   <p className="text-[11px] font-mono text-muted-foreground">
-                    bielik-11b-v3.0-instruct:Q6_K · num_ctx: 8192
+                    {selectedModel || 'Nie wybrano modelu'} · num_ctx: 8192
                   </p>
                 </div>
               </div>
-              <Badge variant="outline" className="font-mono text-[10px] border-success/30 text-success gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-vik-pulse" />
-                Online
-              </Badge>
+              <div className="flex items-center gap-2">
+                {/* Model selector */}
+                <Select value={selectedModel} onValueChange={setSelectedModel}>
+                  <SelectTrigger className="w-[200px] bg-muted/30 border-border/50 text-xs h-8 font-mono">
+                    <SelectValue placeholder="Wybierz model..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {models.length === 0 ? (
+                      <SelectItem value="__none" disabled>Brak modeli — uruchom Ollama</SelectItem>
+                    ) : (
+                      models.map((m) => (
+                        <SelectItem key={m.name} value={m.name} className="text-xs font-mono">
+                          {m.name} ({m.size})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Badge variant="outline" className={`font-mono text-[10px] gap-1 ${ollamaOnline ? 'border-success/30 text-success' : 'border-destructive/30 text-destructive'}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${ollamaOnline ? 'bg-success animate-vik-pulse' : 'bg-destructive'}`} />
+                  {ollamaOnline ? 'Online' : 'Offline'}
+                </Badge>
+              </div>
             </div>
           </CardHeader>
 
@@ -114,6 +172,14 @@ export default function ChatPage() {
           <CardContent className="flex-1 overflow-hidden p-0">
             <ScrollArea className="h-full" ref={scrollRef}>
               <div className="space-y-4 p-4">
+                {!ollamaOnline && (
+                  <div className="flex items-center gap-2 rounded-lg bg-warning/10 border border-warning/20 p-3">
+                    <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+                    <p className="text-xs text-warning">
+                      Serwer Ollama jest niedostępny. Uruchom go komendą <code className="font-mono bg-warning/10 px-1 rounded">ollama serve</code> aby rozmawiać z modelami.
+                    </p>
+                  </div>
+                )}
                 {messages.map((msg) => (
                   <motion.div
                     key={msg.id}
@@ -151,12 +217,6 @@ export default function ChatPage() {
                               {msg.model.split(':')[0]}
                             </Badge>
                           )}
-                          {msg.tools_used && msg.tools_used.map((tool) => (
-                            <Badge key={tool} variant="outline" className="text-[9px] font-mono px-1.5 py-0 border-warning/30 text-warning/70 gap-0.5">
-                              <Wrench className="h-2.5 w-2.5" />
-                              {tool}
-                            </Badge>
-                          ))}
                           {msg.role === "assistant" && (
                             <Button
                               variant="ghost"
@@ -221,9 +281,10 @@ export default function ChatPage() {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Napisz wiadomość do VIK..."
+                  placeholder={ollamaOnline ? "Napisz wiadomość do VIK..." : "Ollama offline — uruchom serwer..."}
                   className="min-h-[44px] max-h-[120px] resize-none bg-muted/30 border-border/50 pr-12 text-sm"
                   rows={1}
+                  disabled={!ollamaOnline}
                 />
                 {micActive && (
                   <div className="absolute bottom-1 left-2">
@@ -233,7 +294,7 @@ export default function ChatPage() {
               </div>
               <Button
                 size="icon"
-                disabled={!inputValue.trim() || isLoading}
+                disabled={!inputValue.trim() || isLoading || !ollamaOnline}
                 onClick={handleSend}
                 className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
               >
@@ -248,23 +309,35 @@ export default function ChatPage() {
       <div className="hidden xl:flex w-80 flex-col gap-4">
         <Card className="glass-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-heading">Aktywne Modele</CardTitle>
+            <CardTitle className="text-sm font-heading">Dostępne Modele ({models.length})</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-lg bg-muted/30 p-3 space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-vik-pulse" />
-                <span className="text-xs font-medium text-foreground">Bielik-11B</span>
-              </div>
-              <p className="text-[10px] font-mono text-muted-foreground">Q6_K · 7.8 GB VRAM · num_ctx: 8192</p>
-            </div>
-            <div className="rounded-lg bg-muted/30 p-3 space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-                <span className="text-xs font-medium text-foreground">DeepSeek-R1-14B</span>
-              </div>
-              <p className="text-[10px] font-mono text-muted-foreground">Q4_K_M · Standby · Reasoning</p>
-            </div>
+          <CardContent className="space-y-2">
+            {models.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Brak modeli. Uruchom Ollama i pobierz model.</p>
+            ) : (
+              models.map((model) => (
+                <div
+                  key={model.name}
+                  className={cn(
+                    "rounded-lg p-3 space-y-1 cursor-pointer",
+                    selectedModel === model.name ? "bg-primary/10 border border-primary/20" : "bg-muted/30 hover:bg-muted/50"
+                  )}
+                  style={{ transition: 'background-color 0.2s ease' }}
+                  onClick={() => setSelectedModel(model.name)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      selectedModel === model.name ? "bg-success animate-vik-pulse" : "bg-muted-foreground"
+                    )} />
+                    <span className="text-xs font-medium text-foreground truncate">{model.name}</span>
+                  </div>
+                  <p className="text-[10px] font-mono text-muted-foreground">
+                    {model.size} · {model.params} · {model.quantization}
+                  </p>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -277,7 +350,7 @@ export default function ChatPage() {
               {[
                 { name: 'system-manager', desc: 'Telemetria serwera', active: true },
                 { name: 'web-navigator', desc: 'Nawigacja www', active: true },
-                { name: 'stt-engine', desc: 'Transkrypcja mowy', active: true },
+                { name: 'stt-engine', desc: 'Transkrypcja mowy', active: false },
                 { name: 'tts-engine', desc: 'Synteza mowy', active: false },
                 { name: 'tool-sandbox', desc: 'Generowanie narzędzi', active: false },
               ].map((tool) => (

@@ -25,6 +25,7 @@ import {
   Save,
   RotateCcw,
 } from "lucide-react";
+import { useVik } from "@/lib/vikContext";
 import { toast } from "sonner";
 
 const containerVariants = {
@@ -37,9 +38,8 @@ const itemVariants = {
 };
 
 export default function SettingsPage() {
+  const { models, selectedModel, setSelectedModel } = useVik();
   const [settings, setSettings] = useState({
-    defaultModel: 'bielik-11b',
-    reasoningModel: 'deepseek-r1-14b',
     numCtx: 8192,
     maxImageSize: 1024,
     sttEnabled: true,
@@ -48,8 +48,6 @@ export default function SettingsPage() {
     sandboxEnabled: true,
     sandboxTimeout: 30,
     allowlistEnabled: true,
-    telegramEnabled: true,
-    telegramToken: '***********',
     postgresHost: 'localhost:5432',
     qdrantHost: 'localhost:6333',
     redisHost: 'localhost:6379',
@@ -88,28 +86,29 @@ export default function SettingsPage() {
           <CardContent className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-xs">Domyślny model</Label>
-                <Select value={settings.defaultModel} onValueChange={(v) => setSettings(s => ({...s, defaultModel: v}))}>
+                <Label className="text-xs">Wybrany model (z Ollama)</Label>
+                <Select value={selectedModel} onValueChange={setSelectedModel}>
                   <SelectTrigger className="bg-muted/30 border-border/50 text-sm h-9">
-                    <SelectValue />
+                    <SelectValue placeholder="Wybierz model..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="bielik-11b">Bielik-11B (Q6_K)</SelectItem>
-                    <SelectItem value="bielik-11b-q4">Bielik-11B (Q4_K_M)</SelectItem>
+                    {models.length === 0 ? (
+                      <SelectItem value="__none" disabled>Brak modeli — uruchom Ollama</SelectItem>
+                    ) : (
+                      models.map((m) => (
+                        <SelectItem key={m.name} value={m.name} className="text-xs font-mono">
+                          {m.name} ({m.size})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Model Reasoning</Label>
-                <Select value={settings.reasoningModel} onValueChange={(v) => setSettings(s => ({...s, reasoningModel: v}))}>
-                  <SelectTrigger className="bg-muted/30 border-border/50 text-sm h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="deepseek-r1-14b">DeepSeek-R1-14B (Q4_K_M)</SelectItem>
-                    <SelectItem value="deepseek-r1-7b">DeepSeek-R1-7B (Q6_K)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">Dostępne modele</Label>
+                <div className="flex items-center h-9 px-3 rounded-md bg-muted/30 border border-border/50 text-sm font-mono text-muted-foreground">
+                  {models.length} modeli w Ollama
+                </div>
               </div>
             </div>
 

@@ -9,12 +9,10 @@ import { MetricCard } from "@/components/shared/MetricCard";
 import { MiniChart } from "@/components/shared/MiniChart";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { VoiceWaveform } from "@/components/shared/VoiceWaveform";
+import { useVik } from "@/lib/vikContext";
 import {
-  systemMetrics,
-  gpuHistory,
+  systemMetricsFallback,
   mcpServers,
-  ollamaModels,
-  logEntries,
 } from "@/lib/mockData";
 import {
   Cpu,
@@ -45,6 +43,10 @@ const itemVariants = {
 
 export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { systemMetrics: liveMetrics, models, health } = useVik();
+
+  const systemMetrics = liveMetrics || systemMetricsFallback;
+  const gpuHistory = [];
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -227,24 +229,23 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="flex-1">
               <div className="space-y-3">
-                {ollamaModels.map((model) => (
+                {models.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Uruchom Ollama i pobierz modele</p>
+                ) : models.map((model) => (
                   <div key={model.name} className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <StatusDot status={model.loaded ? "running" : "stopped"} size="xs" pulse={model.loaded} />
+                        <StatusDot status="running" size="xs" pulse={true} />
                         <span className="text-xs font-medium text-foreground truncate max-w-[150px]">
-                          {model.family} {model.params}
+                          {model.name.split(':')[0]}
                         </span>
                       </div>
                       <span className="text-[10px] font-mono text-muted-foreground">
                         {model.size}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Progress value={(model.vramUsage / systemMetrics.gpu.vramTotal) * 100} className="h-1 flex-1" />
-                      <span className="text-[10px] font-mono text-muted-foreground">
-                        {(model.vramUsage / 1024).toFixed(1)}G
-                      </span>
+                    <div className="text-[10px] font-mono text-muted-foreground">
+                      {model.params} · {model.quantization}
                     </div>
                   </div>
                 ))}
@@ -288,44 +289,47 @@ export default function DashboardPage() {
           <Card className="glass-card h-full flex flex-col">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-heading">Ostatnie Logi</CardTitle>
+                <CardTitle className="text-base font-heading">Status Ollama</CardTitle>
                 <Link to="/logs">
                   <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1 h-7">
-                    Wszystkie <ArrowRight className="h-3 w-3" />
+                    Logi <ArrowRight className="h-3 w-3" />
                   </Button>
                 </Link>
               </div>
             </CardHeader>
             <CardContent className="flex-1">
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-1">
-                  {logEntries.slice(-8).reverse().map((log) => (
-                    <div
-                      key={log.id}
-                      className="flex items-start gap-2 rounded px-2 py-1.5 text-[11px] font-mono"
-                    >
-                      <span className="shrink-0 text-muted-foreground">
-                        {log.timestamp.split(' ')[1]}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[9px] shrink-0 px-1.5 py-0 ${
-                          log.level === 'ERROR'
-                            ? 'border-destructive/40 text-destructive'
-                            : log.level === 'WARNING'
-                            ? 'border-warning/40 text-warning'
-                            : log.level === 'DEBUG'
-                            ? 'border-muted-foreground/40 text-muted-foreground'
-                            : 'border-primary/30 text-primary'
-                        }`}
-                      >
-                        {log.level}
-                      </Badge>
-                      <span className="text-foreground/80 truncate">{log.message}</span>
-                    </div>
-                  ))}
+              <div className="space-y-2 text-xs font-mono">
+                <div className="flex items-center gap-2 rounded bg-muted/20 px-2.5 py-2">
+                  <span className={`h-2 w-2 rounded-full ${health.ollama === 'connected' ? 'bg-success animate-vik-pulse' : 'bg-destructive'}`} />
+                  <span className="text-foreground/80">
+                    Ollama: {health.ollama === 'connected' ? 'Połączony' : 'Rozłączony'}
+                  </span>
                 </div>
-              </ScrollArea>
+                <div className="flex items-center gap-2 rounded bg-muted/20 px-2.5 py-2">
+                  <span className={`h-2 w-2 rounded-full ${health.backend === 'online' ? 'bg-success' : 'bg-destructive'}`} />
+                  <span className="text-foreground/80">
+                    Backend: {health.backend === 'online' ? 'Online' : 'Offline'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded bg-muted/20 px-2.5 py-2">
+                  <span className="h-2 w-2 rounded-full bg-primary" />
+                  <span className="text-foreground/80">
+                    Modele: {health.ollama_models || 0} załadowanych
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded bg-muted/20 px-2.5 py-2">
+                  <span className="h-2 w-2 rounded-full bg-primary" />
+                  <span className="text-foreground/80">
+                    Hostname: {systemMetrics.hostname}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded bg-muted/20 px-2.5 py-2">
+                  <span className="h-2 w-2 rounded-full bg-primary" />
+                  <span className="text-foreground/80">
+                    OS: {systemMetrics.os}
+                  </span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </motion.div>

@@ -1,0 +1,50 @@
+# ===================================================
+# VIK Docker Compose — Bazy danych i infrastruktura
+# ===================================================
+# Uruchom: docker-compose up -d
+# Zatrzymaj: docker-compose down
+# ===================================================
+
+version: '3.8'
+
+services:
+
+  # PostgreSQL — dane relacyjne (profile, konfiguracje)
+  postgres:
+    image: postgres:16
+    container_name: vik-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vik
+      POSTGRES_USER: vik
+      POSTGRES_PASSWORD: vik_password_123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Qdrant — baza wektorowa (pamiec dlugterminowa RAG)
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    container_name: vik-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  # Redis — cache i broker kolejek Celery
+  redis:
+    image: redis:7-alpine
+    container_name: vik-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  redis_data:
